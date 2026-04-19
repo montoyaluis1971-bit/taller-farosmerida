@@ -6,6 +6,8 @@ let PERFIL = null;
 let CATALOGO = [];          // [{id, nombre, categoria, puntos_base}]
 let FICHAJE_HOY = null;     // registro de fichaje del día
 let TURNO_TIMER = null;     // interval para reloj del turno
+let MARCAS_MODELOS = [];    // [{marca, modelo, tamano, precio_base}]
+let MARCAS_UNICAS  = [];    // marcas únicas ordenadas
 
 // ── INIT ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -33,16 +35,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  // Detectar vehículo existente al cambiar placa o marca
-  ['reg-marca-modelo', 'reg-placa4'].forEach(id => {
-    document.getElementById(id).addEventListener('input', debounce(checkSesionExistente, 600));
-  });
+  // Detectar vehículo existente al cambiar placa
+  document.getElementById('reg-placa4').addEventListener('input', debounce(checkSesionExistente, 600));
 
   // Puntos totales reactivo
   document.getElementById('services-grid').addEventListener('input', recalcPuntos);
-
-  // Autocompletar vehículos
-  cargarVehiculosDatalist();
 
   // Form submit
   document.getElementById('form-registro').addEventListener('submit', submitRegistro);
@@ -52,7 +49,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     cargarCatalogo(),
     cargarFichaje(),
     cargarHorario(),
-    verSemanaActual()
+    verSemanaActual(),
+    cargarMarcasModelos()
   ]);
 
   iniciarRelojTurno();
@@ -312,17 +310,78 @@ async function cargarHorario() {
   </div>`;
 }
 
-// ── VEHÍCULOS AUTOCOMPLETE ────────────────────────────────
-async function cargarVehiculosDatalist() {
-  const { data } = await sb.from('vehiculos').select('marca_modelo, placa_ultimos4').order('marca_modelo');
+// ── MARCAS Y MODELOS ──────────────────────────────────────
+async function cargarMarcasModelos() {
+  const { data } = await sb.from('marcas_modelos')
+    .select('marca, modelo, tamano, precio_base')
+    .eq('activo', true)
+    .order('marca').order('modelo');
+
   if (!data) return;
-  const dl = document.getElementById('vehiculos-list');
-  dl.innerHTML = data.map(v => `<option value="${v.marca_modelo}">`).join('');
+  MARCAS_MODELOS = data;
+  MARCAS_UNICAS  = [...new Set(data.map(r => r.marca))].sort((a,b) => a.localeCompare(b, 'es'));
+
+  const sel = document.getElementById('reg-marca');
+  sel.innerHTML =
+    '<option value="">— Selecciona marca —</option>' +
+    MARCAS_UNICAS.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('') +
+    '<option value="__otro__">— Otro (captura manual) —</option>';
+}
+
+function onMarcaChange() {
+  const marca = document.getElementById('reg-marca').value;
+  document.getElementById('reg-marca-modelo').value = '';
+  document.getElementById('grupo-modelo').style.display = 'none';
+  document.getElementById('grupo-otro').style.display   = 'none';
+  document.getElementById('reg-modelo').innerHTML = '<option value="">Selecciona modelo...</option>';
+  document.getElementById('reg-marca-modelo-otro').value = '';
+
+  if (!marca) return;
+
+  if (marca === '__otro__') {
+    document.getElementById('grupo-otro').style.display = '';
+    return;
+  }
+
+  const modelos = MARCAS_MODELOS.filter(r => r.marca === marca).map(r => r.modelo);
+  document.getElementById('reg-modelo').innerHTML =
+    '<option value="">— Selecciona modelo —</option>' +
+    modelos.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('') +
+    '<option value="__otro__">— Otro (captura manual) —</option>';
+  document.getElementById('grupo-modelo').style.display = '';
+}
+
+function onModeloChange() {
+  const marca  = document.getElementById('reg-marca').value;
+  const modelo = document.getElementById('reg-modelo').value;
+
+  if (modelo === '__otro__') {
+    document.getElementById('grupo-otro').style.display = '';
+    document.getElementById('reg-marca-modelo-otro').value = marca + ' ';
+    document.getElementById('reg-marca-modelo').value = '';
+  } else if (modelo) {
+    document.getElementById('grupo-otro').style.display = 'none';
+    document.getElementById('reg-marca-modelo').value = marca + ' ' + modelo;
+    checkSesionExistente();
+  } else {
+    document.getElementById('grupo-otro').style.display = 'none';
+    document.getElementById('reg-marca-modelo').value = '';
+  }
+}
+
+function onOtroInput() {
+  const val = document.getElementById('reg-marca-modelo-otro').value.trim();
+  document.getElementById('reg-marca-modelo').value = val;
+  checkSesionExistente();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 async function checkSesionExistente() {
   const marca = document.getElementById('reg-marca-modelo').value.trim();
-  const placa  = document.getElementById('reg-placa4').value.trim().toUpperCase();
+  const placa = document.getElementById('reg-placa4').value.trim().toUpperCase();
   const fecha  = document.getElementById('reg-fecha').value;
 
   const info = document.getElementById('sesion-existente');
@@ -359,7 +418,7 @@ function submitRegistro(e) {
   const fecha      = document.getElementById('reg-fecha').value;
   const horaInicio = document.getElementById('reg-hora-inicio').value;
   const horaFin    = document.getElementById('reg-hora-fin').value;
-  const marca      = document.getElementById('reg-marca-modelo').value.trim();
+  const marca      = document.getElementById('reg-marca-modelo').value.trim();   // campo oculto consolidado
   const placa      = document.getElementById('reg-placa4').value.trim().toUpperCase();
 
   const serviciosSeleccionados = [];
@@ -470,10 +529,17 @@ async function ejecutarGuardadoRegistro(fecha, horaInicio, horaFin, marca, placa
     await syncServiciosTaller(reg.id, veh, fecha);
 
     // Reset form
-    showMsgRegistro('success', `Registro guardado: ${serviciosSeleccionados.length} servicio(s) para ${marca} ${placa}.`);
+    showMsgRegistro('success', `Registro guardado: ${serviciosSeleccionados.length} servicio(s) para ${marca} — ${placa}.`);
     document.getElementById('form-registro').reset();
     document.getElementById('reg-fecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('reg-hora-inicio').value = fmtTimeLocal(new Date());
+    // Reset selectores de vehículo
+    document.getElementById('reg-marca').value = '';
+    document.getElementById('reg-modelo').innerHTML = '<option value="">Selecciona modelo...</option>';
+    document.getElementById('grupo-modelo').style.display = 'none';
+    document.getElementById('grupo-otro').style.display   = 'none';
+    document.getElementById('reg-marca-modelo').value     = '';
+    document.getElementById('reg-marca-modelo-otro').value = '';
     document.getElementById('services-grid').querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     document.getElementById('puntos-total-val').textContent = '0';
     document.getElementById('sesion-existente').classList.add('hidden');
