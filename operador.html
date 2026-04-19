@@ -75,18 +75,11 @@
         <div class="card mb-2">
           <h2 class="card-title mb-2">Vehículo</h2>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Marca</label>
-              <select class="form-control" id="reg-marca" onchange="onMarcaChange()">
-                <option value="">Cargando marcas...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Últimos 4 de placa</label>
-              <input class="form-control" type="text" id="reg-placa4"
-                placeholder="1234" maxlength="4" style="text-transform:uppercase">
-            </div>
+          <div class="form-group">
+            <label class="form-label">Marca</label>
+            <select class="form-control" id="reg-marca" onchange="onMarcaChange()">
+              <option value="">Cargando marcas...</option>
+            </select>
           </div>
 
           <div class="form-group" id="grupo-modelo" style="display:none">
@@ -102,6 +95,12 @@
               placeholder="Ej. BYD Dolphin" autocomplete="off"
               oninput="onOtroInput()">
             <small class="muted" style="font-size:.78rem;">Escribe la marca y el modelo completo.</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Últimos 4 de placa</label>
+            <input class="form-control" type="text" id="reg-placa4"
+              placeholder="1234" maxlength="4" style="text-transform:uppercase">
           </div>
 
           <!-- Campo oculto que consolida el valor final -->
