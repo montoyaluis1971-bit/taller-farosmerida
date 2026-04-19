@@ -53,8 +53,49 @@
 <script src="js/config.js"></script>
 <script src="js/auth.js"></script>
 <script>
-// Si hay sesión activa (o token en el hash), redirigir
-redirectByRole();
+// Panel de debug temporal (solo visible cuando hay hash OAuth)
+const _dbgEl = document.createElement('div');
+_dbgEl.id = 'auth-debug';
+_dbgEl.style = 'display:none;position:fixed;bottom:0;left:0;right:0;background:#0a0a0a;border-top:1px solid #fad149;color:#fad149;font:11px/1.6 monospace;padding:8px 12px;max-height:150px;overflow:auto;z-index:9999;';
+document.body.appendChild(_dbgEl);
+function _dbg(msg) { _dbgEl.style.display='block'; _dbgEl.innerHTML += msg + '<br>'; console.log('[auth]', msg); }
+
+// Inicio del flujo de autenticación
+(async () => {
+  const hash = window.location.hash;
+
+  if (hash && hash.includes('access_token')) {
+    _dbg('Hash detectado con access_token');
+
+    const params = new URLSearchParams(hash.substring(1));
+    const access_token  = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+
+    _dbg('access_token: ' + (access_token ? access_token.slice(0,30)+'...' : 'NULL'));
+    _dbg('refresh_token: ' + (refresh_token || 'NULL'));
+
+    if (access_token && refresh_token) {
+      _dbg('Llamando sb.auth.setSession()...');
+      const { data, error } = await sb.auth.setSession({ access_token, refresh_token });
+      _dbg('setSession → error: ' + (error ? error.message : 'ninguno'));
+      _dbg('setSession → session: ' + (data?.session ? data.session.user.email : 'null'));
+
+      if (data?.session) {
+        history.replaceState(null, '', window.location.pathname);
+        _dbg('Sesión OK. Buscando perfil...');
+        const perfil = await getPerfil(data.session.user.id);
+        _dbg('Perfil: ' + (perfil ? JSON.stringify({rol:perfil.rol,aprobado:perfil.aprobado}) : 'null'));
+        if (perfil) { doRedirect(perfil); } else { _dbg('ERROR: perfil no encontrado'); }
+        return;
+      }
+    } else {
+      _dbg('ERROR: falta access_token o refresh_token');
+    }
+  } else {
+    // Sin hash: sesión normal
+    redirectByRole();
+  }
+})();
 
 // Google OAuth
 document.getElementById('btn-google').addEventListener('click', async () => {
