@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuenta Pendiente — Faros Mérida</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="pendiente-page">
+  <div class="pendiente-icon">⏳</div>
+  <h1 style="margin-bottom:.5rem;">Cuenta pendiente de aprobación</h1>
+  <p class="muted" style="max-width:320px;margin-bottom:2rem;">
+    Tu cuenta fue registrada correctamente. Un administrador debe aprobarla antes de que puedas ingresar al sistema.
+  </p>
+  <button class="btn btn-ghost" onclick="signOut()">Cerrar sesión</button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>

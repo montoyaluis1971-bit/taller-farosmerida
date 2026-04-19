@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal Operador — Faros Mérida</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <a class="logo" href="#">🔦 Taller FM</a>
+  <div class="user-info">
+    <span class="user-name" id="hdr-nombre">—</span>
+    <button class="btn btn-ghost btn-sm" onclick="signOut()">Salir</button>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="registro">Registrar Trabajo</button>
+  <button class="tab-btn" data-tab="turno">Mi Turno</button>
+  <button class="tab-btn" data-tab="puntos">Mis Puntos</button>
+</nav>
+
+<div class="container">
+  <div class="page-content">
+
+    <!-- ========== TAB: REGISTRAR TRABAJO ========== -->
+    <div class="tab-panel active" id="tab-registro">
+
+      <!-- Fichar turno compacto -->
+      <div class="card mb-2" id="card-fichar-mini">
+        <div class="fichar-card">
+          <div>
+            <div class="fichar-status" id="fichar-mini-label">Turno no iniciado</div>
+            <div class="fichar-time" id="fichar-mini-time">—</div>
+          </div>
+          <button class="btn btn-success" id="btn-fichar-mini" onclick="toggleFichar()">
+            Fichar Entrada
+          </button>
+        </div>
+      </div>
+
+      <div id="msg-registro" class="alert hidden"></div>
+
+      <form id="form-registro">
+        <!-- Fecha -->
+        <div class="card mb-2">
+          <h2 class="card-title mb-2">Datos del servicio</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Fecha</label>
+              <input class="form-control" type="date" id="reg-fecha" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Hora inicio</label>
+              <input class="form-control" type="time" id="reg-hora-inicio" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Hora fin</label>
+              <input class="form-control" type="time" id="reg-hora-fin">
+            </div>
+            <div></div>
+          </div>
+        </div>
+
+        <!-- Vehículo -->
+        <div class="card mb-2">
+          <h2 class="card-title mb-2">Vehículo</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Marca y Modelo</label>
+              <input class="form-control" type="text" id="reg-marca-modelo"
+                placeholder="Toyota Corolla" list="vehiculos-list" autocomplete="off">
+              <datalist id="vehiculos-list"></datalist>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Últimos 4 de placa</label>
+              <input class="form-control" type="text" id="reg-placa4"
+                placeholder="1234" maxlength="4" style="text-transform:uppercase">
+            </div>
+          </div>
+          <!-- Sesión existente del día -->
+          <div id="sesion-existente" class="alert alert-info hidden">
+            Este vehículo ya tiene una sesión abierta hoy. Tus tareas se agregarán a esa sesión.
+          </div>
+        </div>
+
+        <!-- Servicios -->
+        <div class="card mb-2">
+          <h2 class="card-title mb-2">Servicios realizados</h2>
+          <p class="muted mb-2" style="font-size:.85rem;">Selecciona cada servicio que hiciste y ajusta los puntos si es necesario.</p>
+          <div class="services-grid" id="services-grid">
+            <div class="loading-overlay"><span class="spinner"></span> Cargando catálogo...</div>
+          </div>
+        </div>
+
+        <!-- Total puntos -->
+        <div class="card mb-2">
+          <div class="puntos-total-display">
+            <div class="val" id="puntos-total-val">0</div>
+            <div class="lbl">Puntos totales del registro</div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-block btn-lg" type="submit" id="btn-registrar">
+          Guardar Registro
+        </button>
+      </form>
+    </div>
+
+    <!-- ========== TAB: MI TURNO ========== -->
+    <div class="tab-panel" id="tab-turno">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Estado del turno — <span id="turno-fecha">hoy</span></h2>
+        </div>
+
+        <div id="turno-no-fichado" class="text-center" style="padding:1.5rem 0;">
+          <div style="font-size:2rem;margin-bottom:.75rem;">🕗</div>
+          <p class="muted mb-2">Aún no has fichado entrada hoy.</p>
+          <button class="btn btn-success btn-lg" onclick="toggleFichar()">Fichar Entrada</button>
+        </div>
+
+        <div id="turno-fichado" class="hidden">
+          <div class="stats-row mb-2">
+            <div class="stat-card">
+              <div class="stat-value" id="turno-hora-entrada">—</div>
+              <div class="stat-label">Entrada</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="turno-hora-salida">—</div>
+              <div class="stat-label">Salida</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="turno-horas-trab">—</div>
+              <div class="stat-label">Horas trabajadas</div>
+            </div>
+            <div class="stat-card extra">
+              <div class="stat-value" id="turno-horas-extra">0</div>
+              <div class="stat-label">Horas extra</div>
+            </div>
+          </div>
+
+          <!-- Barra de jornada -->
+          <div class="horas-bar-wrap">
+            <div class="horas-bar-labels">
+              <span>Jornada normal (7.5 h)</span>
+              <span id="bar-pct">0%</span>
+            </div>
+            <div class="horas-bar">
+              <div class="horas-bar-fill" id="bar-fill" style="width:0%"></div>
+            </div>
+          </div>
+
+          <div class="mt-2 text-center" id="turno-btn-wrap">
+            <button class="btn btn-danger btn-lg" onclick="toggleFichar()">Fichar Salida</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Horario del operador -->
+      <div class="card mt-2">
+        <h2 class="card-title mb-2">Mi horario</h2>
+        <div id="horario-grid" class="muted" style="font-size:.85rem;">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- ========== TAB: MIS PUNTOS ========== -->
+    <div class="tab-panel" id="tab-puntos">
+
+      <!-- Selector semana / período -->
+      <div class="card mb-2">
+        <div class="flex gap-1 mb-2" style="flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" id="btn-semana-actual" onclick="verSemanaActual()">Esta semana</button>
+          <button class="btn btn-ghost btn-sm" id="btn-periodo" onclick="togglePeriodo()">Período personalizado</button>
+        </div>
+        <div id="periodo-inputs" class="form-row hidden">
+          <div class="form-group">
+            <label class="form-label">Desde</label>
+            <input class="form-control" type="date" id="pts-desde">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hasta</label>
+            <input class="form-control" type="date" id="pts-hasta">
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <button class="btn btn-primary btn-sm" onclick="cargarPuntosPeriodo()">Buscar</button>
+          </div>
+        </div>
+        <div id="pts-periodo-label" class="muted" style="font-size:.82rem;"></div>
+      </div>
+
+      <!-- Resumen de puntos -->
+      <div class="stats-row mb-2">
+        <div class="stat-card">
+          <div class="stat-value" id="pts-total">—</div>
+          <div class="stat-label">Puntos totales</div>
+        </div>
+        <div class="stat-card success">
+          <div class="stat-value" id="pts-aprobados">—</div>
+          <div class="stat-label">Aprobados</div>
+        </div>
+        <div class="stat-card warning">
+          <div class="stat-value" id="pts-pendientes">—</div>
+          <div class="stat-label">Pendientes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="pts-tareas">—</div>
+          <div class="stat-label">Tareas</div>
+        </div>
+      </div>
+
+      <!-- Tabla de tareas -->
+      <div class="card">
+        <h2 class="card-title mb-2">Detalle de tareas</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Vehículo</th>
+                <th>Servicio</th>
+                <th>Hora</th>
+                <th>Puntos</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="pts-tabla-body">
+              <tr><td colspan="6" class="text-center muted" style="padding:2rem;">Selecciona un período</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /tab-puntos -->
+
+  </div><!-- /page-content -->
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/operador.js"></script>
+</body>
+</html>

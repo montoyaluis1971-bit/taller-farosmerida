@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Faros Mérida</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <a class="logo" href="#">🔦 Taller FM — Admin</a>
+  <div class="user-info">
+    <span class="user-name" id="hdr-nombre">—</span>
+    <button class="btn btn-ghost btn-sm" onclick="signOut()">Salir</button>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+  <button class="tab-btn" data-tab="validacion">Validación <span id="badge-pendientes" class="badge badge-warning hidden">0</span></button>
+  <button class="tab-btn" data-tab="operadores">Operadores</button>
+  <button class="tab-btn" data-tab="catalogo">Catálogo</button>
+  <button class="tab-btn" data-tab="reportes">Reportes</button>
+</nav>
+
+<div class="container">
+<div class="page-content">
+
+  <!-- ========== TAB: DASHBOARD ========== -->
+  <div class="tab-panel active" id="tab-dashboard">
+    <div class="flex-between mb-2">
+      <h2 id="dash-fecha-titulo">Hoy</h2>
+      <button class="btn btn-ghost btn-sm" onclick="cargarDashboard()">↺ Actualizar</button>
+    </div>
+
+    <div class="stats-row mb-2">
+      <div class="stat-card">
+        <div class="stat-value" id="dash-fichados">—</div>
+        <div class="stat-label">Operadores fichados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="dash-tareas-hoy">—</div>
+        <div class="stat-label">Tareas hoy</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-value" id="dash-pts-hoy">—</div>
+        <div class="stat-label">Puntos totales</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-value" id="dash-pendientes">—</div>
+        <div class="stat-label">Por validar</div>
+      </div>
+    </div>
+
+    <!-- Tabla de operadores activos hoy -->
+    <div class="card">
+      <h2 class="card-title mb-2">Operadores hoy</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Operador</th>
+              <th>Entrada</th>
+              <th>Salida</th>
+              <th>Horas</th>
+              <th>H.Extra</th>
+              <th>Tareas</th>
+              <th>Puntos</th>
+              <th>Costo est.</th>
+            </tr>
+          </thead>
+          <tbody id="dash-tabla-body">
+            <tr><td colspan="8" class="text-center muted" style="padding:2rem"><span class="spinner"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TAB: VALIDACIÓN ========== -->
+  <div class="tab-panel" id="tab-validacion">
+    <div class="flex-between mb-2">
+      <h2>Tareas pendientes de validación</h2>
+      <button class="btn btn-ghost btn-sm" onclick="cargarValidacion()">↺ Actualizar</button>
+    </div>
+    <div id="validacion-content">
+      <div class="loading-overlay"><span class="spinner"></span> Cargando...</div>
+    </div>
+  </div>
+
+  <!-- ========== TAB: OPERADORES ========== -->
+  <div class="tab-panel" id="tab-operadores">
+    <div class="flex-between mb-2">
+      <h2>Gestión de Operadores</h2>
+      <button class="btn btn-primary btn-sm" onclick="abrirModalNuevoOperador()">+ Nuevo Operador</button>
+    </div>
+
+    <!-- Pendientes de aprobación -->
+    <div id="pendientes-aprobacion" class="hidden">
+      <div class="alert alert-warning mb-2">
+        <strong>Cuentas pendientes de aprobación:</strong>
+      </div>
+      <div id="lista-pendientes" class="mb-2"></div>
+    </div>
+
+    <!-- Lista de operadores -->
+    <div id="lista-operadores">
+      <div class="loading-overlay"><span class="spinner"></span> Cargando...</div>
+    </div>
+  </div>
+
+  <!-- ========== TAB: CATÁLOGO ========== -->
+  <div class="tab-panel" id="tab-catalogo">
+    <div class="flex-between mb-2">
+      <h2>Catálogo de Servicios y Puntos</h2>
+      <button class="btn btn-primary btn-sm" onclick="guardarCatalogo()">Guardar cambios</button>
+    </div>
+    <p class="muted mb-2" style="font-size:.85rem;">Ajusta los puntos base de cada servicio. El operador puede modificarlos al registrar su trabajo.</p>
+    <div id="catalogo-content">
+      <div class="loading-overlay"><span class="spinner"></span> Cargando...</div>
+    </div>
+  </div>
+
+  <!-- ========== TAB: REPORTES ========== -->
+  <div class="tab-panel" id="tab-reportes">
+    <div class="card mb-2">
+      <h2 class="card-title mb-2">Filtros</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Operador</label>
+          <select class="form-control" id="rep-operador">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Desde</label>
+          <input class="form-control" type="date" id="rep-desde">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hasta</label>
+          <input class="form-control" type="date" id="rep-hasta">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="generarReporte()">Generar reporte</button>
+    </div>
+
+    <!-- Métricas del reporte -->
+    <div id="reporte-stats" class="hidden">
+      <div class="stats-row mb-2">
+        <div class="stat-card">
+          <div class="stat-value" id="rep-horas-norm">—</div>
+          <div class="stat-label">Horas normales</div>
+        </div>
+        <div class="stat-card extra">
+          <div class="stat-value" id="rep-horas-extra">—</div>
+          <div class="stat-label">Horas extra</div>
+        </div>
+        <div class="stat-card success">
+          <div class="stat-value" id="rep-pts-total">—</div>
+          <div class="stat-label">Puntos totales</div>
+        </div>
+        <div class="stat-card warning">
+          <div class="stat-value" id="rep-costo-norm">—</div>
+          <div class="stat-label">Costo normal</div>
+        </div>
+        <div class="stat-card extra">
+          <div class="stat-value" id="rep-costo-extra">—</div>
+          <div class="stat-label">Costo extra</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="rep-costo-total">—</div>
+          <div class="stat-label">Costo total</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title mb-2">Detalle por jornada</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Operador</th>
+                <th>Entrada</th>
+                <th>Salida</th>
+                <th>H.Normal</th>
+                <th>H.Extra</th>
+                <th>T.Muerto</th>
+                <th>Tareas</th>
+                <th>Puntos</th>
+                <th>Costo</th>
+              </tr>
+            </thead>
+            <tbody id="rep-tabla-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page-content -->
+</div><!-- /container -->
+
+<!-- ========== MODAL: NUEVO/EDITAR OPERADOR ========== -->
+<div class="modal-backdrop hidden" id="modal-operador">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-op-titulo">Nuevo Operador</h2>
+      <button class="modal-close" onclick="cerrarModalOperador()">×</button>
+    </div>
+
+    <div id="modal-op-msg" class="alert hidden"></div>
+
+    <form id="form-operador">
+      <input type="hidden" id="op-id">
+      <div class="form-group">
+        <label class="form-label">Nombre completo</label>
+        <input class="form-control" type="text" id="op-nombre" required placeholder="Nombre Apellido">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Correo</label>
+        <input class="form-control" type="email" id="op-email" placeholder="nombre@farosmerida.com">
+        <div class="form-hint">El operador usará este correo para ingresar.</div>
+      </div>
+      <div class="form-group" id="grp-password">
+        <label class="form-label">Contraseña temporal</label>
+        <input class="form-control" type="text" id="op-password" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Costo/hora normal (MXN)</label>
+          <input class="form-control" type="number" id="op-costo-normal" min="0" step="0.5" value="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Costo/hora extra (MXN)</label>
+          <input class="form-control" type="number" id="op-costo-extra" min="0" step="0.5" value="0">
+        </div>
+      </div>
+
+      <!-- Horario -->
+      <div class="form-group">
+        <label class="form-label">Días y horarios</label>
+        <div id="horario-editor" style="display:grid;gap:.4rem;">
+          <!-- generado dinámicamente -->
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block mt-2" type="submit" id="btn-op-submit">
+        Guardar Operador
+      </button>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

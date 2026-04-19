@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Área de Taller — Faros Mérida</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="login-page">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="icon">🔦</div>
+      <h1 class="gradient-text">Área de Taller</h1>
+      <p>Faros &amp; Detailing Mérida</p>
+    </div>
+
+    <!-- Login con Google (admins) -->
+    <button class="btn btn-google btn-block btn-lg" id="btn-google">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+      Ingresar con Google
+    </button>
+
+    <div class="login-divider">o ingresa con tu cuenta del taller</div>
+
+    <!-- Login email/password (operadores) -->
+    <div id="msg-error" class="alert alert-danger hidden"></div>
+
+    <form id="form-login">
+      <div class="form-group">
+        <label class="form-label" for="email">Correo</label>
+        <input class="form-control" type="email" id="email" placeholder="nombre@farosmerida.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="password">Contraseña</label>
+        <input class="form-control" type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary btn-block btn-lg mt-2" type="submit" id="btn-login">
+        Ingresar
+      </button>
+    </form>
+
+    <p class="mt-3 text-center muted" style="font-size:.8rem;">
+      ¿Cuenta nueva? Pide a un administrador que te registre.
+    </p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script>
+// Si ya hay sesión activa, redirigir
+(async () => {
+  const session = await getSession();
+  if (session) await redirectByRole();
+})();
+
+// Google OAuth
+document.getElementById('btn-google').addEventListener('click', async () => {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + '/index.html'
+    }
+  });
+  if (error) showError(error.message);
+});
+
+// Email + password
+document.getElementById('form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Ingresando...';
+  hideError();
+
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    showError(error.message === 'Invalid login credentials'
+      ? 'Correo o contraseña incorrectos.'
+      : error.message);
+    btn.disabled = false;
+    btn.innerHTML = 'Ingresar';
+    return;
+  }
+
+  await redirectByRole();
+});
+
+// Auth state change (maneja redirect de Google OAuth)
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    await redirectByRole();
+  }
+});
+
+function showError(msg) {
+  const el = document.getElementById('msg-error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+function hideError() {
+  document.getElementById('msg-error').classList.add('hidden');
+}
+</script>
+</body>
+</html>
