@@ -2,19 +2,30 @@
 // AUTH UTILITIES — compartido por todas las páginas
 // ============================================================
 
-// Espera a que Supabase termine de inicializar y procesar el hash de OAuth.
-// Esto resuelve el race condition al regresar de Google OAuth.
-function waitForSession() {
-  return new Promise((resolve) => {
-    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-        subscription.unsubscribe();
-        resolve(session);
+// ============================================================
+// AUTH UTILITIES — compartido por todas las páginas
+// ============================================================
+
+// Obtiene la sesión actual, procesando el hash de OAuth si existe
+async function resolveSession() {
+  // 1. Si hay access_token en el hash, establecer sesión explícitamente
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const access_token  = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    if (access_token && refresh_token) {
+      const { data } = await sb.auth.setSession({ access_token, refresh_token });
+      if (data?.session) {
+        // Limpiar el hash de la URL sin recargar
+        history.replaceState(null, '', window.location.pathname);
+        return data.session;
       }
-    });
-    // Timeout de seguridad: si en 5s no hay evento, resolver con null
-    setTimeout(() => { subscription.unsubscribe(); resolve(null); }, 5000);
-  });
+    }
+  }
+  // 2. Si no hay hash, buscar sesión guardada
+  const { data: { session } } = await sb.auth.getSession();
+  return session || null;
 }
 
 async function getSession() {
@@ -34,8 +45,7 @@ async function getPerfil(userId) {
 
 // Redirige según rol. Llamar desde index.html después de login.
 async function redirectByRole() {
-  // Usar waitForSession para asegurar que el hash de OAuth fue procesado
-  const session = await waitForSession();
+  const session = await resolveSession();
   if (!session) return;
 
   let perfil = await getPerfil(session.user.id);
@@ -67,7 +77,7 @@ function doRedirect(perfil) {
 
 // Guard para páginas de operador
 async function requireOperador() {
-  const session = await waitForSession();
+  const session = await resolveSession();
   if (!session) { window.location.replace('index.html'); return null; }
   const perfil = await getPerfil(session.user.id);
   if (!perfil || (!perfil.aprobado && perfil.rol !== 'admin')) {
@@ -78,7 +88,7 @@ async function requireOperador() {
 
 // Guard para páginas de admin
 async function requireAdmin() {
-  const session = await waitForSession();
+  const session = await resolveSession();
   if (!session) { window.location.replace('index.html'); return null; }
   const perfil = await getPerfil(session.user.id);
   if (!perfil || perfil.rol !== 'admin') { window.location.replace('index.html'); return null; }
