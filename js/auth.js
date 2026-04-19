@@ -6,24 +6,22 @@
 // AUTH UTILITIES — compartido por todas las páginas
 // ============================================================
 
-// Obtiene la sesión actual, procesando el hash de OAuth si existe
+// Obtiene la sesión actual. Si hay access_token en el hash,
+// espera a que Supabase lo procese (detectSessionInUrl) en lugar de parsear manualmente.
 async function resolveSession() {
-  // 1. Si hay access_token en el hash, establecer sesión explícitamente
-  const hash = window.location.hash;
-  if (hash && hash.includes('access_token')) {
-    const params = new URLSearchParams(hash.substring(1));
-    const access_token  = params.get('access_token');
-    const refresh_token = params.get('refresh_token');
-    if (access_token && refresh_token) {
-      const { data } = await sb.auth.setSession({ access_token, refresh_token });
-      if (data?.session) {
-        // Limpiar el hash de la URL sin recargar
-        history.replaceState(null, '', window.location.pathname);
-        return data.session;
-      }
-    }
+  if (window.location.hash.includes('access_token')) {
+    return new Promise((resolve) => {
+      const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          subscription.unsubscribe();
+          history.replaceState(null, '', window.location.pathname);
+          resolve(session);
+        }
+      });
+      // Fallback por si el evento no llega en 6 segundos
+      setTimeout(() => { subscription.unsubscribe(); resolve(null); }, 6000);
+    });
   }
-  // 2. Si no hay hash, buscar sesión guardada
   const { data: { session } } = await sb.auth.getSession();
   return session || null;
 }
