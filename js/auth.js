@@ -7,19 +7,21 @@
 // ============================================================
 
 // Obtiene la sesión actual. Si hay access_token en el hash,
-// espera a que Supabase lo procese (detectSessionInUrl) en lugar de parsear manualmente.
+// espera SOLO al evento SIGNED_IN con sesión válida (no INITIAL_SESSION que llega con null).
 async function resolveSession() {
   if (window.location.hash.includes('access_token')) {
     return new Promise((resolve) => {
       const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        // INITIAL_SESSION puede llegar con null antes de que Supabase procese el hash.
+        // Solo resolvemos cuando tenemos una sesión real.
+        if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
           subscription.unsubscribe();
           history.replaceState(null, '', window.location.pathname);
           resolve(session);
         }
       });
-      // Fallback por si el evento no llega en 6 segundos
-      setTimeout(() => { subscription.unsubscribe(); resolve(null); }, 6000);
+      // Fallback: si tras 8s no llega sesión, seguimos sin ella
+      setTimeout(() => { subscription.unsubscribe(); resolve(null); }, 8000);
     });
   }
   const { data: { session } } = await sb.auth.getSession();
