@@ -53,11 +53,8 @@
 <script src="js/config.js"></script>
 <script src="js/auth.js"></script>
 <script>
-// Si ya hay sesión activa, redirigir
-(async () => {
-  const session = await getSession();
-  if (session) await redirectByRole();
-})();
+// Si hay sesión activa (o token en el hash), redirigir
+redirectByRole();
 
 // Google OAuth
 document.getElementById('btn-google').addEventListener('click', async () => {
@@ -95,12 +92,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
   await redirectByRole();
 });
 
-// Auth state change (maneja redirect de Google OAuth)
-sb.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN' && session) {
-    await redirectByRole();
-  }
-});
+// (La sesión ya se maneja en redirectByRole con waitForSession)
 
 function showError(msg) {
   const el = document.getElementById('msg-error');

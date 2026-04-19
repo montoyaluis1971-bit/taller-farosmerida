@@ -2,6 +2,21 @@
 // AUTH UTILITIES — compartido por todas las páginas
 // ============================================================
 
+// Espera a que Supabase termine de inicializar y procesar el hash de OAuth.
+// Esto resuelve el race condition al regresar de Google OAuth.
+function waitForSession() {
+  return new Promise((resolve) => {
+    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+        subscription.unsubscribe();
+        resolve(session);
+      }
+    });
+    // Timeout de seguridad: si en 5s no hay evento, resolver con null
+    setTimeout(() => { subscription.unsubscribe(); resolve(null); }, 5000);
+  });
+}
+
 async function getSession() {
   const { data: { session } } = await sb.auth.getSession();
   return session;
@@ -17,22 +32,16 @@ async function getPerfil(userId) {
   return data;
 }
 
-// Guarda en Supabase la sesión actual y devuelve el perfil
-async function getSessionAndPerfil() {
-  const session = await getSession();
-  if (!session) return { session: null, perfil: null };
-  const perfil = await getPerfil(session.user.id);
-  return { session, perfil };
-}
-
 // Redirige según rol. Llamar desde index.html después de login.
 async function redirectByRole() {
-  const { session, perfil } = await getSessionAndPerfil();
+  // Usar waitForSession para asegurar que el hash de OAuth fue procesado
+  const session = await waitForSession();
   if (!session) return;
 
+  let perfil = await getPerfil(session.user.id);
+
   if (!perfil) {
-    // El perfil no existe aún (puede pasar milisegundos después del OAuth)
-    // Crear perfil mínimo y reintentar
+    // Crear perfil mínimo si el trigger aún no corrió
     await sb.from('perfiles').upsert({
       id: session.user.id,
       email: session.user.email,
@@ -40,40 +49,39 @@ async function redirectByRole() {
       rol: 'operador',
       aprobado: false
     }, { onConflict: 'id', ignoreDuplicates: true });
-    // Reintentar
-    const p = await getPerfil(session.user.id);
-    if (!p) return;
-    doRedirect(p);
-    return;
+    perfil = await getPerfil(session.user.id);
+    if (!perfil) return;
   }
   doRedirect(perfil);
 }
 
 function doRedirect(perfil) {
   if (perfil.rol === 'admin') {
-    window.location.href = 'admin.html';
+    window.location.replace('admin.html');
   } else if (perfil.aprobado) {
-    window.location.href = 'operador.html';
+    window.location.replace('operador.html');
   } else {
-    window.location.href = 'pendiente.html';
+    window.location.replace('pendiente.html');
   }
 }
 
-// Guard para páginas de operador — redirige si no hay sesión o no aprobado
+// Guard para páginas de operador
 async function requireOperador() {
-  const { session, perfil } = await getSessionAndPerfil();
-  if (!session) { window.location.href = 'index.html'; return null; }
+  const session = await waitForSession();
+  if (!session) { window.location.replace('index.html'); return null; }
+  const perfil = await getPerfil(session.user.id);
   if (!perfil || (!perfil.aprobado && perfil.rol !== 'admin')) {
-    window.location.href = 'pendiente.html'; return null;
+    window.location.replace('pendiente.html'); return null;
   }
   return { session, perfil };
 }
 
 // Guard para páginas de admin
 async function requireAdmin() {
-  const { session, perfil } = await getSessionAndPerfil();
-  if (!session) { window.location.href = 'index.html'; return null; }
-  if (!perfil || perfil.rol !== 'admin') { window.location.href = 'index.html'; return null; }
+  const session = await waitForSession();
+  if (!session) { window.location.replace('index.html'); return null; }
+  const perfil = await getPerfil(session.user.id);
+  if (!perfil || perfil.rol !== 'admin') { window.location.replace('index.html'); return null; }
   return { session, perfil };
 }
 
