@@ -40,7 +40,7 @@
             <div class="fichar-status" id="fichar-mini-label">Turno no iniciado</div>
             <div class="fichar-time" id="fichar-mini-time">—</div>
           </div>
-          <button class="btn btn-success" id="btn-fichar-mini" onclick="toggleFichar()">
+          <button class="btn btn-success" id="btn-fichar-mini" onclick="pedirConfirmFichar()">
             Fichar Entrada
           </button>
         </div>
@@ -55,7 +55,7 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Fecha</label>
-              <input class="form-control" type="date" id="reg-fecha" required>
+              <input class="form-control" type="date" id="reg-fecha" required readonly style="background:var(--surface2);cursor:default;opacity:.7;">
             </div>
             <div class="form-group">
               <label class="form-label">Hora inicio</label>
@@ -126,7 +126,7 @@
         <div id="turno-no-fichado" class="text-center" style="padding:1.5rem 0;">
           <div style="font-size:2rem;margin-bottom:.75rem;">🕗</div>
           <p class="muted mb-2">Aún no has fichado entrada hoy.</p>
-          <button class="btn btn-success btn-lg" onclick="toggleFichar()">Fichar Entrada</button>
+          <button class="btn btn-success btn-lg" onclick="pedirConfirmFichar()">Fichar Entrada</button>
         </div>
 
         <div id="turno-fichado" class="hidden">
@@ -161,7 +161,7 @@
           </div>
 
           <div class="mt-2 text-center" id="turno-btn-wrap">
-            <button class="btn btn-danger btn-lg" onclick="toggleFichar()">Fichar Salida</button>
+            <button class="btn btn-danger btn-lg" onclick="pedirConfirmFichar()">Fichar Salida</button>
           </div>
         </div>
       </div>
@@ -244,6 +244,19 @@
 
   </div><!-- /page-content -->
 </div><!-- /container -->
+
+<!-- Modal de confirmación general -->
+<div id="modal-confirm" class="modal-overlay hidden" style="z-index:2000;">
+  <div class="modal-box" style="max-width:320px;text-align:center;padding:2rem 1.5rem;">
+    <div style="font-size:2.2rem;margin-bottom:.6rem;" id="confirm-icon">⚠️</div>
+    <h3 id="confirm-title" style="margin-bottom:.4rem;font-size:1.05rem;"></h3>
+    <p id="confirm-msg" class="muted" style="font-size:.88rem;margin-bottom:1.5rem;line-height:1.5;"></p>
+    <div style="display:flex;gap:.75rem;">
+      <button class="btn btn-ghost btn-block" onclick="cerrarConfirm()">Cancelar</button>
+      <button class="btn btn-primary btn-block" id="btn-confirm-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>

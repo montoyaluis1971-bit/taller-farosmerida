@@ -15,10 +15,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   PERFIL = auth.perfil;
   document.getElementById('hdr-nombre').textContent = PERFIL.nombre_completo;
 
-  // Fechas y horas por defecto
+  // Fecha siempre = hoy (readonly, no permite fechas pasadas)
   const hoy = new Date();
-  document.getElementById('reg-fecha').value = hoy.toISOString().split('T')[0];
-  document.getElementById('reg-hora-inicio').value = fmtTimeLocal(hoy);
+  const hoyStr = hoy.toISOString().split('T')[0];
+  const fechaEl = document.getElementById('reg-fecha');
+  fechaEl.value = hoyStr;
+  fechaEl.max   = hoyStr;   // tampoco fechas futuras
+  fechaEl.min   = hoyStr;   // bloquea pasadas
+
+  // Hora inicio: ahora; hora fin: max = ahora (no futuro)
+  const ahoraStr = fmtTimeLocal(hoy);
+  document.getElementById('reg-hora-inicio').value = ahoraStr;
+  document.getElementById('reg-hora-fin').max       = ahoraStr;
 
   // Tabs
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -102,6 +110,31 @@ function recalcPuntos() {
   document.getElementById('puntos-total-val').textContent = total.toFixed(1).replace(/\.0$/, '');
 }
 
+// ── MODAL CONFIRMACIÓN ───────────────────────────────────
+let _confirmCb = null;
+
+function mostrarConfirm(icon, title, msg, okLabel, okClass, cb) {
+  document.getElementById('confirm-icon').textContent  = icon;
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent   = msg;
+  const btnOk = document.getElementById('btn-confirm-ok');
+  btnOk.textContent = okLabel;
+  btnOk.className   = 'btn ' + okClass + ' btn-block';
+  btnOk.onclick     = ejecutarConfirm;
+  _confirmCb = cb;
+  document.getElementById('modal-confirm').classList.remove('hidden');
+}
+
+function cerrarConfirm() {
+  document.getElementById('modal-confirm').classList.add('hidden');
+  _confirmCb = null;
+}
+
+function ejecutarConfirm() {
+  cerrarConfirm();
+  if (_confirmCb) _confirmCb();
+}
+
 // ── FICHAJE ───────────────────────────────────────────────
 async function cargarFichaje() {
   const hoy = new Date().toISOString().split('T')[0];
@@ -163,23 +196,54 @@ function renderFichaje() {
     hoy.toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
 }
 
+function pedirConfirmFichar() {
+  if (FICHAJE_HOY?.hora_salida) return; // turno cerrado, botón ya deshabilitado
+
+  const ahora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+  if (!FICHAJE_HOY?.hora_entrada) {
+    mostrarConfirm('🟢', 'Fichar Entrada',
+      `¿Confirmas tu entrada al taller a las ${ahora}?`,
+      'Sí, fichar entrada', 'btn-success', toggleFichar);
+  } else {
+    mostrarConfirm('🔴', 'Fichar Salida',
+      `¿Confirmas tu salida del taller a las ${ahora}?\nEsta acción no se puede modificar.`,
+      'Sí, fichar salida', 'btn-danger', toggleFichar);
+  }
+}
+
 async function toggleFichar() {
   const hoy = new Date().toISOString().split('T')[0];
 
   if (!FICHAJE_HOY?.hora_entrada) {
-    // Fichar entrada
-    const { data, error } = await sb.from('fichajes').upsert({
+    // Protección: no sobreescribir si ya existe
+    const { data: existing } = await sb.from('fichajes')
+      .select('id').eq('operador_id', PERFIL.id).eq('fecha', hoy).maybeSingle();
+    if (existing) {
+      toast('Ya tienes una entrada registrada hoy.', 'error');
+      await cargarFichaje(); return;
+    }
+
+    const { data, error } = await sb.from('fichajes').insert({
       operador_id: PERFIL.id,
       fecha: hoy,
       hora_entrada: new Date().toISOString(),
       es_inferido: false
-    }, { onConflict: 'operador_id,fecha' }).select().single();
+    }).select().single();
 
     if (error) { toast('Error al fichar: ' + error.message, 'error'); return; }
     FICHAJE_HOY = data;
     toast('Entrada registrada', 'success');
+
   } else if (!FICHAJE_HOY?.hora_salida) {
-    // Fichar salida
+    // Protección: no sobreescribir si ya tiene salida
+    const { data: check } = await sb.from('fichajes')
+      .select('hora_salida').eq('id', FICHAJE_HOY.id).single();
+    if (check?.hora_salida) {
+      toast('Tu salida ya fue registrada.', 'error');
+      await cargarFichaje(); return;
+    }
+
     const { data, error } = await sb.from('fichajes')
       .update({ hora_salida: new Date().toISOString() })
       .eq('id', FICHAJE_HOY.id)
@@ -289,11 +353,8 @@ async function checkSesionExistente() {
 }
 
 // ── SUBMIT REGISTRO ───────────────────────────────────────
-async function submitRegistro(e) {
+function submitRegistro(e) {
   e.preventDefault();
-  const btn = document.getElementById('btn-registrar');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Guardando...';
 
   const fecha      = document.getElementById('reg-fecha').value;
   const horaInicio = document.getElementById('reg-hora-inicio').value;
@@ -310,16 +371,43 @@ async function submitRegistro(e) {
     });
   });
 
-  const msgEl = document.getElementById('msg-registro');
+  // Validar fecha = hoy
+  const hoyStr = new Date().toISOString().split('T')[0];
+  if (fecha !== hoyStr) {
+    showMsgRegistro('error', 'Solo puedes registrar trabajo del día de hoy.');
+    return;
+  }
+
+  // Validar hora inicio no en el futuro
+  const ahora = new Date();
+  const [hi, mi] = horaInicio.split(':').map(Number);
+  const tsInicio = new Date(); tsInicio.setHours(hi, mi, 0, 0);
+  if (tsInicio > ahora) {
+    showMsgRegistro('error', 'La hora de inicio no puede ser en el futuro.');
+    return;
+  }
 
   if (!marca || !placa) {
     showMsgRegistro('error', 'Ingresa la marca/modelo y los últimos 4 dígitos de la placa.');
-    btn.disabled = false; btn.innerHTML = 'Guardar Registro'; return;
+    return;
   }
   if (serviciosSeleccionados.length === 0) {
     showMsgRegistro('error', 'Selecciona al menos un servicio.');
-    btn.disabled = false; btn.innerHTML = 'Guardar Registro'; return;
+    return;
   }
+
+  // Pedir confirmación antes de guardar
+  mostrarConfirm('💾', 'Confirmar registro',
+    `¿Guardar ${serviciosSeleccionados.length} servicio(s) para ${marca} — ${placa}?`,
+    'Sí, guardar', 'btn-primary',
+    () => ejecutarGuardadoRegistro(fecha, horaInicio, horaFin, marca, placa, serviciosSeleccionados)
+  );
+}
+
+async function ejecutarGuardadoRegistro(fecha, horaInicio, horaFin, marca, placa, serviciosSeleccionados) {
+  const btn = document.getElementById('btn-registrar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Guardando...';
 
   try {
     // 1. Obtener o crear vehículo
