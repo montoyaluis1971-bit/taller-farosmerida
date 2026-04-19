@@ -58,13 +58,23 @@ redirectByRole();
 
 // Google OAuth
 document.getElementById('btn-google').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-google');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Conectando...';
+  hideError();
+
+  const redirectTo = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: {
-      redirectTo: window.location.href.split('#')[0].split('?')[0]
-    }
+    options: { redirectTo }
   });
-  if (error) showError(error.message);
+
+  if (error) {
+    showError('Google: ' + error.message);
+    btn.disabled = false;
+    btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"> Ingresar con Google';
+  }
+  // si no hay error, el navegador redirige — no hace falta re-habilitar el botón
 });
 
 // Email + password
