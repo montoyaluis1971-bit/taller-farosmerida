@@ -64,7 +64,7 @@ document.getElementById('btn-google').addEventListener('click', async () => {
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: window.location.origin + '/index.html'
+      redirectTo: window.location.href.split('#')[0].split('?')[0]
     }
   });
   if (error) showError(error.message);
